@@ -478,7 +478,32 @@ int re_comp(rcode *prog, const char *re)
 	return RE_SUCCESS;
 }
 
+char *retype(int *pc)
+{
+        switch(*pc) {
+        case CHAR:
+                return "char";
+        case ANY:
+                return "any";
+        case CLASS:
+                return "class";
+        case ASSERT:
+                return "assert";
+        case JMP:
+                return "jmp";
+        case SPLIT:
+                return "split";
+        case RSPLIT:
+                return "rsplit";
+        case SAVE:
+                return "save";
+        case MATCH:
+                return "match";
+        }
+}
+
 #define save(nn, csub) \
+printf("save nn:%d ref:%d sub:%d\n", nn ,csub->ref, csub-nsubs); \
 if (csub->ref > 1) { \
 	for (j = 0; j < subidx; j++) { \
 		if (!nsubs[j].ref) { \
@@ -516,17 +541,20 @@ if (csub->ref > 1) { \
 	default: \
 		list->t[list->n].sub = sub; \
 		list->t[list->n++].pc = pc; \
+		printf("def %s nn:%d ref:%d sub:%d\n", retype(pc), nn ,sub->ref, sub - nsubs); \
 		goto rec_check##nn; \
 	case JMP: \
 		pc += 2 + pc[1]; \
 		goto rec##nn; \
 	case SPLIT: \
+		printf("split nn:%d ref:%d sub:%d\n", nn ,sub->ref, sub - nsubs); \
 		subs[i] = sub; \
 		sub->ref++; \
 		pc += 2; \
 		pcs[i++] = pc + pc[-1]; \
 		goto rec##nn; \
 	case RSPLIT: \
+		printf("rsplit nn:%d ref:%d sub:%d\n", nn ,sub->ref, sub - nsubs); \
 		subs[i] = sub; \
 		sub->ref++; \
 		pc += 2; \
@@ -565,6 +593,7 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 	int *pcs[prog->splits];
 	rsub *subs[prog->splits];
 	rsub *nsub = nsubs, *lsub = nsub, *matched = NULL, *s1;
+	rsub *ssub = nsub;
 	rthreadlist _clist[1+prog->len]; 
 	rthreadlist _nlist[1+prog->len]; 
 	rthreadlist *clist = _clist, *nlist = _nlist, *tmp;
@@ -578,8 +607,9 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 	}
 
 	gen = 1;
+	nsub->ref = 2;
+	save(0, nsub);
 	nsub->sub[0] = sp;
-	nsub->ref = 3;
 	goto jmp_start;
 	for(; clist->n; sp += l) {
 		gen++; uc_len(l, sp)
@@ -598,10 +628,7 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 				uc_code(c, sp)
 				if(c != *npc++)
 					break;
-				goto addthread;
 			case ANY:
-				save(8, nsub)
-				nsub->sub[0] = sp + l;
 			addthread:
 				addthread(2, nlist, npc, nsub, continue)
 			case CLASS:
@@ -616,18 +643,20 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 			}
 			nsub->ref--;
 		}
-		if (nsub != lsub)
+		if (!matched) {
 			nsub = lsub;
-		save(3, nsub)
-		nsub->sub[0] = sp + l;
-		nsub->ref++;
-		lsub = nsub;
-		swaplist()
-		jmp_start:
-		while (1)
-			addthread(1, clist, prog->insts, nsub, break)
-		continue;
+			nsub->ref++;
+			save(3, nsub)
+			nsub->sub[0] = sp + l;
+			swaplist()
+			jmp_start:
+			while (1)
+				addthread(1, clist, prog->insts, nsub, break)
+			printf("nextlist %d\n", gen);
+			continue;
+		}
 	BreakFor:
+		printf("nextlist %d\n", gen);
 		swaplist()
 	}
 	if(matched) {
