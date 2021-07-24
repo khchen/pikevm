@@ -493,6 +493,30 @@ int re_comp(rcode *prog, const char *re, int anchored)
 	return RE_SUCCESS;
 }
 
+char *retype(int *pc)
+{
+	switch(*pc) { 
+	case CHAR:
+		return "char";
+	case ANY:
+		return "any";
+	case CLASS:
+		return "class";
+	case ASSERT:
+		return "assert";
+	case JMP:
+		return "jmp";
+	case SPLIT:
+		return "split";
+	case RSPLIT:
+		return "rsplit";
+	case SAVE:
+		return "save";
+	case MATCH:
+		return "match";
+	}
+}
+
 #define addthread(nn, list, _pc, _sub, cont) \
 { \
 	int i = 0, j, *pc = _pc; \
@@ -514,17 +538,20 @@ int re_comp(rcode *prog, const char *re, int anchored)
 	default: \
 		list->t[list->n].sub = sub; \
 		list->t[list->n++].pc = pc; \
+		printf("def %s nn:%d ref:%d sub:%d\n", retype(pc), nn ,sub->ref, sub-nsubs); \
 		goto rec_check##nn; \
 	case JMP: \
 		pc += 2 + pc[1]; \
 		goto rec##nn; \
 	case SPLIT: \
+		printf("split nn:%d ref:%d sub:%d\n", nn ,sub->ref, sub-nsubs); \
 		subs[i] = sub; \
 		sub->ref++; \
 		pc += 2; \
 		pcs[i++] = pc + pc[-1]; \
 		goto rec##nn; \
 	case RSPLIT: \
+		printf("rsplit nn:%d ref:%d sub:%d\n", nn ,sub->ref, sub-nsubs); \
 		subs[i] = sub; \
 		sub->ref++; \
 		pc += 2; \
@@ -532,6 +559,7 @@ int re_comp(rcode *prog, const char *re, int anchored)
 		pc += pc[-1]; \
 		goto rec##nn; \
 	case SAVE: \
+		printf("save nn:%d ref:%d sub:%d\n", nn ,sub->ref, sub-nsubs); \
 		if (sub->ref > 1) { \
 			for (j = 0; j < subidx; j++) { \
 				if (!nsubs[j].ref) { \
@@ -617,6 +645,7 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 			nsub->ref--;
 		}
 	BreakFor:
+		printf("nextlist %d\n",gen);
 		tmp = clist;
 		clist = nlist;
 		nlist = tmp;
