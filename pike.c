@@ -590,6 +590,13 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp)
 					break;
 			case ANY:
 			addthread:
+				/* this will verify that pointers are correct
+				and values are actually initialized */
+				printf("%d %p %p %d\n", nlistidx, (void*)nlist[nlistidx-1].pc, (void*)insts, *nlist[nlistidx-1].pc);
+				/* *nlist[nlistidx-1].pc is always valid and
+				initialized. this should not violate strict 
+				aliasing when nlistidx == 0 and as tested
+				numerous time in practice does produce correct results */
 				if (*nlist[nlistidx-1].pc == MATCH)
 					break;
 				addthread(2, nlist, nlistidx)
